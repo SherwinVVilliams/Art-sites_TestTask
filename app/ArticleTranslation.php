@@ -11,6 +11,6 @@ class ArticleTranslation extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['title', 'description', 'text'];
+    protected $fillable = ['title', 'description', 'text', 'locale'];
 
 }

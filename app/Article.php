@@ -34,4 +34,5 @@ class Article extends Model
             $this->categories()->detach();
         }
     }
+
 }

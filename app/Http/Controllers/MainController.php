@@ -5,8 +5,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 
 use Config;
-use App\Article;
-use App\Category;
+
+use App\Http\Repositories\ArticleRepository;
+use App\Http\Repositories\ImageRepository;
 
 class MainController extends Controller
 {
@@ -25,6 +26,15 @@ class MainController extends Controller
 	public function __construct(){
 		$this->project_folder = Config::get('setting.project_folder_name');
 		$this->template = 'site.template';
+	}
+
+	protected function varsVariables()
+	{
+		$this->add_vars($this->sidebar, 'sidebar');
+    	$this->add_vars($this->footer, 'footer');
+    	$this->add_vars($this->navigation, 'navigation');
+		$this->add_vars($this->header, 'header');
+		$this->add_vars($this->content, 'content');
 	}
 
 	protected function RenderOutput(){
@@ -46,12 +56,7 @@ class MainController extends Controller
 
     	$this->sidebar = $this->sidebar_control();
 
-    	$this->add_vars($this->sidebar, 'sidebar');
-    	$this->add_vars($this->footer, 'footer');
-    	$this->add_vars($this->navigation, 'navigation');
-		$this->add_vars($this->header, 'header');
-		$this->add_vars($this->content, 'content');
-
+    	$this->varsVariables();
 
 		return view($this->template, $this->vars);
 	}
@@ -82,55 +87,6 @@ class MainController extends Controller
 		else{
 			throw new \Exception('Неудалось добавить данные');
 		}
-	}
-
-	protected function getArticles($select = '*',  $take = false, $paginate = false, $where = false, $orderBy = false ){
-
-    	$result = Article::select($select);
-
-    	if($take){
-    		$result->take($take);
-    	}
-
-    	if(is_array($where) && count($where) == 2){
-    		$result->where($where[0], $where[1]);
-    	}
-
-    	if($orderBy){
-    		$result->orderBy($orderBy, 'desc');
-    	}
-
-    	if($paginate){
-    		return $this->check($result->paginate($paginate));
-    	}
-
-    	return $this->check($result->get());
-    }
-
-    protected function getCategories($select = '*', $take = false){
-
-    	$result = Category::select($select);
-
-    	if($take){
-    		$result->take($take);
-    	}
-
-    	return $result->get();
-    }
-
-    protected function check($result){
-		if($result->isEmpty()){
-			return false;
-		}
-
-		$result->transform(function($item, $key) {
-			if(is_string($item->image) && is_object(json_decode($item->image)) && json_last_error() == JSON_ERROR_NONE){
-				$item->image = json_decode($item->image);
-			}
-
-			return $item;
-		});// декодіруємо json формат в полі картинки, якщо це не потрібно то нічого не зробимо
-		return $result;
 	}
 
 }

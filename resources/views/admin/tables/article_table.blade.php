@@ -14,6 +14,7 @@
                       <th>Image</th>
                       <th>Views</th>
                       <th>User</th>
+                      <th>EDIT</th>
                       <th>Delete</th>
                     </tr>
                   </thead>
@@ -26,24 +27,37 @@
                       <th>Image</th>
                       <th>Views</th>
                       <th>User</th>
+                      <th>Edit</th>
                       <th>Delete</th>
                     </tr>
                   </tfoot>
                   <tbody>
                     @if($items)
                       @foreach($items as $article)
-                        @if(!empty($article->title))
-                          <tr>
-                            <td>{{ $article->id }}
-                            <td><a href = "{{ route('admin.articles.edit', ['id' => $article->id]) }}" >{{ $article->title }}</a></td>
-                            <td>{{ str_limit($article->description, 75) }}</td>
-                            <td>{{ str_limit($article->text, 75) }}</td>
-                            <td><img src = "{{ config('setting.project_folder_name') }}/img/articles/{{ $article->image->mini }}"></td>
-                            <td>{{ $article->views }}</td>
-                            <td>{{ $article->user->name }} {{ $article->user->last_name }}</td>
-                            <td><a href = "{{ route('admin.articles.destroy', ['id' => $article->id]) }}" ><img src = '/site/img/cross-24-512.png' width="70" height="70"></a></td>
-                          </tr>
-                        @endif
+                        <tr>
+                          @foreach(config()->get('translatable.locales') as $locale)
+                            @if($article->hasTranslation($locale))
+                              <td>{{ $article->id }}</td>
+                              <td>{{ $article->translate($locale)->title }}</td>
+                              <td>{{ str_limit($article->translate($locale)->description, 75) }}</td>
+                              <td>{{ str_limit($article->translate($locale)->text, 75) }}</td>
+                              <td><img src = "{{ config('setting.project_folder_name') }}/img/articles/{{ $article->image->mini }}"></td>
+                              <td>{{ $article->views }}</td>
+                              <td>{{ $article->user->name }} {{ $article->user->last_name }}</td>
+                              <td>
+                                @foreach(config()->get('translatable.locales') as $locale)
+                                  @if($article->hasTranslation($locale))
+                                    <a href = "{{ route('admin.articles.edit', ['id' => $article->id, 'lang' => $locale]) }}" class = 'btn btn-success'>{{ $locale }}</a>
+                                  @else
+                                    <a href = "{{ route('admin.articles.edit', ['id' => $article->id, 'lang' => $locale]) }}" class = 'btn btn-warning'>{{ $locale }}</a>
+                                  @endif
+                                @endforeach
+                              </td>
+                              <td><a href = "{{ route('admin.articles.destroy', ['id' => $article->id]) }}" ><img src = '/site/img/cross-24-512.png' width="70" height="70"></a></td>
+                              @break(1)
+                            @endif
+                          @endforeach
+                        </tr>
                       @endforeach
                     @endif
                   </tbody>

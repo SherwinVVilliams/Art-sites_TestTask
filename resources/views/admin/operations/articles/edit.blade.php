@@ -4,6 +4,7 @@
 		<br>
 		<form id = 'create_form' method = 'post' action = " {{ route('admin.articles.update', ['id' => $article->id]) }} " enctype="multipart/form-data" class = 'contact-form' >
 			{{ csrf_field() }}
+			<input type = 'hidden' value="{{ $lang }}" name = 'language' id = 'language'>
 			<div class="form-group">
 	            	<div class="form-label-group">
 	              		<input type="text" id="firstName" name="title" class="form-control{{ $errors->has('title') ? ' is-invalid' : '' }}" placeholder="Title" value="{{ $article->title }}" required autofocus>

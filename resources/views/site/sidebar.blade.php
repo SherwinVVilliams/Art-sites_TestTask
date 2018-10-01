@@ -23,13 +23,13 @@
             <h5 class="title-bg">Recents Posts</h5>
             <ul class="popular-posts">
                 @if($articles)
-                @foreach($articles as $article)
-                <li>
-                    <a href="{{ route('single', ['id' => $article->id]) }}"><img src="{{ $folder_name }}/img/articles/{{ $article->image->mini }}" alt="Popular Post"></a>
-                    <h6><a href="{{ route('single', ['id' => $article->id]) }}">{{ $article->title }}</a></h6>
-                    <em>Posted on {{ $article->created_at ?  $article->created_at->format('Y/m/d') : '2018\06\07' }}</em>
-                </li>
-                @endforeach
+                    @foreach($articles as $article)
+                        <li>
+                            <a href="{{ route('single', ['id' => $article->id]) }}"><img src="{{ $folder_name }}/img/articles/{{ $article->image->mini }}" alt="Popular Post"></a>
+                            <h6><a href="{{ route('single', ['id' => $article->id]) }}">{{ $article->title }}</a></h6>
+                            <em>Posted on {{ $article->created_at ?  $article->created_at->format('Y/m/d') : '2018\06\07' }}</em>
+                        </li>
+                    @endforeach
                 @endif
             </ul>
 

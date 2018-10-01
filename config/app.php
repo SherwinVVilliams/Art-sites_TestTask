@@ -148,7 +148,7 @@ return [
         Illuminate\View\ViewServiceProvider::class,
         Intervention\Image\ImageServiceProvider::class,
         Dimsav\Translatable\TranslatableServiceProvider::class,
-        Cviebrock\EloquentSluggable\ServiceProvider::class,
+
         /*
          * Package Service Providers...
          */

@@ -5,24 +5,29 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 
 use App\Article;
+use App\Category;
+
+
+use App\Http\Repositories\ArticleRepository;
 use Config;
 
 class SiteController extends MainController
 {
+    private $art_rep;
 
-    public function __construct(){
+    public function __construct(ArticleRepository $art){
         parent::__construct();
-        session()->put('lang' , Config::get('setting.language'));
+        $this->art_rep = $art;
     }
 
-    public function index(){
-        
-        app()->setLocale(session()->get('lang'));
-    	$articles = $this->getArticles('*', false ,Config::get('setting.article_pagination'));
+    public function index()
+    {   
+    	$articles = $this->art_rep->check(Article::translatedIn(app()->getLocale())->paginate(Config::get('setting.article_pagination')));
+
     	$articles->load('categories', 'user');
 
-    	$articles_sidebar = $this->getArticles("*", Config::get('setting.articles_sidebar'), false, false, 'id');
-    	$categories_sidebar = $this->getCategories("*", Config::get('setting.categories_sidebar'));
+    	$articles_sidebar = $this->art_rep->check(Article::translatedIn(app()->getLocale())->take(Config::get('setting.articles_sidebar'))->orderBy('id', 'desc')->get());
+    	$categories_sidebar = Category::select()->take(Config::get('setting.categories_sidebar'))->get();
 
     	$this->content = view('site.content', [
             'articles' => $articles,
@@ -39,14 +44,14 @@ class SiteController extends MainController
 
     public function single($id){
 
-        app()->setLocale(session()->get('lang'));
-    	$article =Article::where('id',$id)->first();
+    	$article = Article::find($id);
+
     	if($article){
             $article->image = json_decode($article->image);
         }
 
-    	$articles_sidebar = $this->getArticles("*", Config::get('setting.articles_sidebar'), false, false, 'id');
-    	$categories_sidebar = $this->getCategories("*", Config::get('setting.categories_sidebar'));
+    	$articles_sidebar = $this->art_rep->check(Article::translatedIn(app()->getLocale())->take(Config::get('setting.articles_sidebar'))->orderBy('id', 'desc')->get());
+    	$categories_sidebar = Category::select()->take(Config::get('setting.categories_sidebar'))->get();
 
     	$this->content = view('site.content_single', [
     		'article' => $article,
@@ -62,13 +67,12 @@ class SiteController extends MainController
     	return $this->renderOutput();
     }
 
-    public function category(){
+    public function category()
+    {
+    	$categories = Category::all();
 
-        app()->setLocale(session()->get('lang'));
-    	$categories = $this->getCategories();
-
-    	$articles_sidebar = $this->getArticles("*", Config::get('setting.articles_sidebar'), false, false, 'id');
-    	$categories_sidebar = $this->getCategories("*", Config::get('setting.categories_sidebar'));
+    	$articles_sidebar = $this->art_rep->check(Article::translatedIn(app()->getLocale())->take(Config::get('setting.articles_sidebar'))->orderBy('id', 'desc')->get());
+    	$categories_sidebar = Category::select()->take(Config::get('setting.categories_sidebar'))->get();
 
     	$this->content = view('site.categories', [
     		'categories' => $categories
@@ -82,14 +86,13 @@ class SiteController extends MainController
     	return $this->renderOutput();
     }
 
-    public function category_single($id){
-
-        app()->setLocale(session()->get('lang'));
-    	$articles = $this->getArticles();
+    public function category_single($id)
+    {
+    	$articles = $this->art_rep->check(Article::all());
     	$articles->load('categories', 'user');
 
-    	$articles_sidebar = $this->getArticles("*", Config::get('setting.articles_sidebar', false, false, 'id'));
-    	$categories_sidebar = $this->getCategories("*", Config::get('setting.categories_sidebar'));
+        $articles_sidebar = $this->art_rep->check(Article::translatedIn(app()->getLocale())->take(Config::get('setting.articles_sidebar'))->orderBy('id', 'desc')->get());
+        $categories_sidebar = Category::select()->take(Config::get('setting.categories_sidebar'))->get();
 
     	$this->content = view('site.category_single', [
     		'articles' => $articles,
@@ -106,15 +109,16 @@ class SiteController extends MainController
     	return $this->renderOutput();
     }
 
-    public function changeLang($lang){
-        if($lang == 'ru' | $lang == 'en'){
-            session()->put('lang', $lang);
+    public function changeLang($lang)
+    {    
+        foreach(config()->get('translatable.locales') as $locale){
+            if($lang == $locale){
+                session()->put('lang', $lang); 
+                break;
+            }
         }
 
         return redirect(url()->previous());
     }
-
-
-    
 
 }

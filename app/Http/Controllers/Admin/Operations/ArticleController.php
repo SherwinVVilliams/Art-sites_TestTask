@@ -10,6 +10,9 @@ use Image;
 use DB;
 use Response;
 
+use App\Http\Repositories\ArticleRepository;
+use App\Http\Repositories\ImageRepository;
+
 use App\Article;
 use App\Category;
 
@@ -18,32 +21,23 @@ use App\Http\Requests\ArticleRequest;
 
 class ArticleController extends AdminController
 {
-    private $folder_image = '\site\img\articles';
+    private $art_rep; 
+    private $art_img;
 
-    private $img_names = array();
-    private $img_resolution = array();
-
-    public function __construct()
+    public function __construct(ArticleRepository $art, ImageRepository $img)
     {
         parent::__construct();
+        $this->art_rep = $art;
+        $this->art_rep->setImageRepository($img);
+
+        $this->art_img = $this->art_rep->getImageRepository();
+
         $this->project_folder = config('setting.admin_operation_folder').'.articles';
-
-        $this->img_names = ['mini', 'max', 'path', /*'test'*/];
-
-        $this->img_resolution = [ 
-            $this->img_names[0] => [70, 70],
-            $this->img_names[1] => [245,245],
-            $this->img_names[2] => [900, 525],
-            /*$this->img_names[3] => [450, 450], //для теста */
-        ];
     }
-
-    public function index(){}
 
     public function create()
     {   
-        app()->setLocale(session()->get('lang') ? session()->get('lang') : config()->get('setting.language'));
-        $categories = $this->getCategories();
+        $categories = Category::all();
         $locales = config()->get('translatable.locales');
 
         $this->content = view($this->project_folder.'/create', ['categories' => $categories, 'locales' => $locales]);
@@ -54,125 +48,44 @@ class ArticleController extends AdminController
 
     public function store(ArticleRequest $request)
     {
-        if($request->method('post')){
-            $lang_values = $request->except('_token', 'image','categories', 'language');
-            $data['user_id'] = auth()->user()->id;
-            $data['image'] = $this->getImageName();
-            $article = Article::create($data);
+        $values = $request->except('_token', 'image','categories', 'language');
+        $data['user_id'] = auth()->user()->id;
+        $data['image'] = $this->art_img->getImageName();
 
-            $article->categories()->attach($request->categories);
+        $article = Article::create($data);
 
-            foreach ([$request->language] as $locale) {
-                $article->translateOrNew($locale)->title = $lang_values['title'];
-                $article->translateOrNew($locale)->text = $lang_values['text'];
-                $article->translateOrNew($locale)->description = $lang_values['description'];
-            }
-            $article->save();
+        $article->fill([$request->language => $values]);
 
-            return redirect()->route('admin.home');
-        }
+        $article->categories()->attach($request->categories);
+
+        $article->save();
+
+        return redirect()->route('admin.home');
 
     }
 
-    private function getImageName(){
-
-        $data = array();
-
-        if(session()->has('old_image_name')){
-            for($i = 0; $i<count($this->img_names); $i++){
-                $data[$this->img_names[$i]] = session()->get('old_image_name').'-'.$this->img_names[$i].'.'.session()->get('old_image_ext');
-                $this->moveImages($data[$this->img_names[$i]]);
-            }
-            session()->forget('old_image_name');
-            session()->forget('old_image_ext');
-            session()->forget('old_image_user');
-        }
-        else{
-            for($i = 0; $i<count($this->img_names); $i++){
-                $data[$this->img_names[$i]] = 'no-image'.'-'.$this->img_names[$i].'.jpg';
-            }
-        }
-
-        return json_encode($data);
-    }
-
-    private function moveImages($image_name){
-        $old_path = public_path($this->folder_image.'/'.Auth::user()->id.'/'.$image_name);
-        $new_path = public_path($this->folder_image.'/'.$image_name);
-        if(file_exists($old_path)){
-            rename($old_path, $new_path);
-        }
-    }
 
     public function store_async_images(Request $request){
-        if($request->method('ajax')){
-            if($request->hasFile('img')){
-                $this->checkOldImages($request);
-                echo $this->asyncThreeImagesUpload($request);
+        if($request->method('ajax'))
+        {
+            if($request->hasFile('img'))
+            {
+                $this->art_img->setImage($request->file('img'));
+
+                $this->art_img->checkOldImages();
+                return $this->art_img->asyncImagesUpload();
             }
         }
     }
 
-    private function asyncThreeImagesUpload($request){
-
-        $image = $request->file('img');
-
-        $user = Auth::user()->id.'/';
-        $filename = date('Y-m-d_h-i-s');
-        $dir_path = public_path($this->folder_image.'/'.$user);
-        $ext = $image->getClientOriginalExtension();
-
-        $full_path_images = array();
-        $return_array = array();
-        $resol = $this->img_resolution;
-        $names = $this->img_names;
-
-        if(!is_dir($dir_path)){
-            mkdir($dir_path);
-        }
-
-        for($i = 0; $i < count($names); $i++)
-        {
-            $path = $this->folder_image.'/'.$user.$filename.'-'.$names[$i].'.'.$ext;
-
-            $full_path_images[$names[$i]] = public_path($path);
-            $return_array[$this->img_names[$i]] = $path;
-
-            Image::make($image)->fit($resol[$names[$i]][0],$resol[$names[$i]][1])->save($full_path_images[$names[$i]]);
-        }
-
-        session()->put('old_image_name', $filename);
-        session()->put('old_image_ext', $ext);
-        session()->put('old_image_user', $user);
-
-        return Response::json($return_array);
-    }
-
-    private function checkOldImages($request){
-        if(session()->has('old_image_name'))
-        {
-            for($i = 0; $i<count($this->img_names);$i++){
-
-                $image_path = $this->folder_image.'/'.session()->get('old_image_user').session()->get('old_image_name').'-'.$this->img_names[$i].".".session()->get('old_image_ext');
-
-                if(file_exists(public_path($image_path))){
-                    unlink(public_path($image_path));
-                }
-            }
-
-        }
-    }
-
-    public function show($id){}
-
-    public function edit($id)
+    public function edit($id, $lang)
     {
-        app()->setLocale(session()->get('lang') ? session()->get('lang') : config()->get('setting.language'));
         $article = Article::findOrFail($id);
+        $article->setDefaultLocale($lang);
         $article->image = json_decode($article->image);
-        $categories = $this->getCategories();
+        $categories = Category::all();
 
-        $this->content = view($this->project_folder.'/edit', ['article' => $article, 'categories' => $categories]);
+        $this->content = view($this->project_folder.'/edit', ['article' => $article, 'categories' => $categories, 'lang' => $lang]);
         $this->sidebar = view('admin.sidebar');
 
         return $this->renderOutput();
@@ -180,44 +93,32 @@ class ArticleController extends AdminController
 
     public function update(ArticleRequest $request, $id)
     {
-            $article = Article::findOrFail($id);
-            $lang_values = $request->except('_token', 'image','categories');
+        $article = Article::findOrFail($id);
+        $values = $request->except('_token', 'image','categories');
+        $article->setDefaultLocale($values['language']);
 
-            if($request->file('image')){
-                $old_images = json_decode($article->image);
-                $this->checkNoImage((array)$old_images);
-                $article->image = $this->getImageName();
-            }
-            $article->save();
-            $article->articleDetach($request->categories);
-            $locales = [session()->get('language') ? session()->get('language') : 'en'];
+        if($request->file('image'))
+        {
+            $old_images = json_decode($article->image);
+            $this->art_img->checkNoImage((array)$old_images);
+            $article->image = $this->art_img->getImageName();
+        }
 
-            foreach ($locales as $locale) {
-                $article->translate($locale)->title =  $lang_values['title'];
-                $article->translate($locale)->text = $lang_values['text'];
-                $article->translate($locale)->description = $lang_values['description'];
-            }
-            $article->save();
+        $article->fill([$request->language => $values]);
 
-            return redirect()->route('admin.home');
+        $article->save();
+
+        $article->articleDetach($request->categories);
+
+        return redirect()->route('admin.home');
     }
-
-    /*private function articleDetach($array_items,Article $article){
-        if($array_items){
-            $article->categories()->detach();
-            $article->categories()->attach($array_items);
-        }
-        else{
-            $article->categories()->detach();
-        }
-    }*/
 
     public function destroy($id)
     {
         $article = Article::findOrFail($id);
 
         $image = json_decode($article->image);
-        $this->checkNoImage((array)$image);
+        $this->art_img->checkNoImage((array)$image);
 
         $article->categories()->detach();
         $article->delete();
@@ -225,19 +126,5 @@ class ArticleController extends AdminController
         return redirect()->route('admin.home');
     }
 
-    private function checkNoImage($old){
-        if($old['mini'] != 'no-image-mini.jpg'){
-            for($i = 0; $i<count($this->img_names); $i++){
-               $this->deleteImage($old[$this->img_names[$i]]);
-            }
-        }
-    }
-
-    private function deleteImage($img_name){
-        $path = public_path($this->folder_image.'/'.$img_name);
-        if(file_exists($path)){
-            unlink($path);
-        }
-    }
 
 }

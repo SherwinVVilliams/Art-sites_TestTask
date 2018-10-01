@@ -16,12 +16,9 @@ $(document).ready(function(){
 				headers: { "X-CSRF-TOKEN" : $("meta[name='csrf-token']").attr('content')},
 				success: function(resp){
 					console.log(resp);
-					var result = resp.split('{');
-					var dec = JSON.parse('{'+result[1]);
-					console.log(dec);
-					$('#image-mini_attr').attr('src', dec.mini);
-					$('#image-max_attr').attr('src', dec.max);
-					$('#image-path_attr').attr('src', dec.path);
+					$('#image-mini_attr').attr('src', resp.mini);
+					$('#image-max_attr').attr('src', resp.max);
+					$('#image-path_attr').attr('src', resp.path);
 				},
 				/*error: function(resp){
 					console.log(resp);
